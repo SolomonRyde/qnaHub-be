@@ -13,14 +13,10 @@ const {
   deleteSubcategory,
 } = require("../controllers/industryController");
 const { authenticateToken, authorizeAdmin } = require("../middleware/auth");
-const { cacheMiddleware } = require("../middleware/cache");
+// Note: Removed cacheMiddleware for pagination endpoint since query params vary
 
-// GET nested hierarchy (with caching)
-router.get(
-  "/all-industries-categories-subcategories",
-  cacheMiddleware("hierarchy"),
-  getAllIndustries,
-);
+// GET nested hierarchy with pagination support (NO caching due to dynamic params)
+router.get("/all-industries-categories-subcategories", getAllIndustries);
 
 // Industry CRUD
 router.post("/industries", authenticateToken, authorizeAdmin, createIndustry);

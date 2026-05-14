@@ -3,8 +3,13 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
-const industryRoutes = require("./routes/industryRouter");
+const industryRoutes = require("./routes/industryRoutes");
 const llmQuestionRoutes = require("./routes/llmQuestionRoutes");
+
+const questionRoutes = require("./routes/questionRoutes");
+const importRoutes = require("./routes/importRoutes");
+const stagingRoutes = require("./routes/stagingRoutes");
+
 const errorHandler = require("./middleware/errorHandler");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
@@ -52,6 +57,10 @@ app.use(
 app.use("/api/v1/llm/questions", llmQuestionRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/admin", adminRoutes);
+
+app.use("/api/v1/questions", questionRoutes);
+app.use("/api/v1/question-imports", importRoutes);
+app.use("/api/v1/staging-questions", stagingRoutes);
 
 app.use("/api/v1", industryRoutes);
 

@@ -49,15 +49,37 @@ const transformToNested = (data) => {
   return Object.values(industriesMap);
 };
 
-// ==================== GET ALL (NESTED) ====================
+// ==================== GET ALL (NESTED) WITH PAGINATION ====================
 exports.getAllIndustries = catchAsync(async (req, res, next) => {
-  const data = await industryModel.getAllData();
-  const nestedData = transformToNested(data);
+  // Parse query params
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+  const search = req.query.search || "";
+  const industry = req.query.industry || "";
+  const category = req.query.category || "";
+
+  // Validate pagination params
+  const safePage = Math.max(1, page);
+  const safeLimit = Math.min(100, Math.max(1, limit)); // Cap at 100 for performance
+
+  const { rows, total, stats } = await industryModel.getPaginatedHierarchy({
+    page: safePage,
+    limit: safeLimit,
+    search,
+    industry,
+    category,
+  });
+
+  const nestedData = transformToNested(rows);
+  const totalPages = Math.max(1, Math.ceil(total / safeLimit));
 
   res.status(200).json({
     success: true,
-    count: nestedData.length,
+    count: total,
+    totalPages,
+    currentPage: safePage,
     nestedData,
+    stats,
   });
 });
 
@@ -72,7 +94,7 @@ exports.createIndustry = catchAsync(async (req, res, next) => {
   const id = await industryModel.createIndustry(industry_name.trim());
   const industry = await industryModel.findIndustryById(id);
 
-  clearCache("hierarchy"); // Invalidate cache
+  clearCache("hierarchy");
 
   res.status(201).json({
     success: true,
