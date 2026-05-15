@@ -1,5 +1,5 @@
 const importService = require("../services/importService");
-const ImportModel = require("../models/QuestionImportModel");
+const ImportModel = require("../models/questionImportModel");
 
 exports.uploadToStaging = async (req, res, next) => {
   try {

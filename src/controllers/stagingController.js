@@ -1,7 +1,7 @@
-const StagingModel = require("../models/StagingQuestionModel");
+const StagingModel = require("../models/stagingQuestionModel");
 const duplicateService = require("../services/duplicateService");
-const ImportModel = require("../models/QuestionImportModel");
-const QuestionModel = require("../models/QuestionModel");
+const ImportModel = require("../models/questionImportModel");
+const QuestionModel = require("../models/questionModel");
 const db = require("../config/db");
 
 exports.getStagingQuestions = async (req, res, next) => {
