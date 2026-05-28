@@ -3,6 +3,9 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
+const cookieParser = require("cookie-parser");
+const path = require("path");
+
 const industryRoutes = require("./routes/industryRoutes");
 const llmQuestionRoutes = require("./routes/llmQuestionRoutes");
 
@@ -10,10 +13,11 @@ const questionRoutes = require("./routes/questionRoutes");
 const importRoutes = require("./routes/importRoutes");
 const stagingRoutes = require("./routes/stagingRoutes");
 
+const examRoutes = require("./routes/examRoutes");
+
 const errorHandler = require("./middleware/errorHandler");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
-const cookieParser = require("cookie-parser");
 
 const app = express();
 
@@ -21,6 +25,9 @@ app.set("trust proxy", 1);
 // built‑in middleware
 app.use(express.json());
 app.use(cookieParser());
+
+// app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));
+app.use("/uploads", express.static("/home/u911106075/uploads"));
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -45,7 +52,11 @@ app.use(
   }),
 );
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false, // To access the image from localhost not to block any requests
+  }),
+);
 
 app.use(
   rateLimit({
@@ -61,6 +72,7 @@ app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/questions", questionRoutes);
 app.use("/api/v1/question-imports", importRoutes);
 app.use("/api/v1/staging-questions", stagingRoutes);
+app.use("/api/v1/exam", examRoutes);
 
 app.use("/api/v1", industryRoutes);
 
