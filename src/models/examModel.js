@@ -2,7 +2,6 @@ const db = require("../config/db");
 
 const examModel = {
   createExam: async (examData) => {
-    // ✅ Normalize topics_covered to JSON string if it's an array
     const topicsCoveredValue = Array.isArray(examData.topics_covered)
       ? JSON.stringify(examData.topics_covered)
       : examData.topics_covered || null;
@@ -30,7 +29,7 @@ const examModel = {
       examData.difficulty,
       examData.status || "draft",
       examData.is_featured || 0,
-      topicsCoveredValue, // ✅ Added topics_covered
+      topicsCoveredValue,
     ];
 
     const [result] = await db.execute(query, values);
@@ -38,7 +37,6 @@ const examModel = {
   },
 
   updateExam: async (id, examData) => {
-    // ✅ Normalize topics_covered to JSON string if it's an array
     const topicsCoveredValue = Array.isArray(examData.topics_covered)
       ? JSON.stringify(examData.topics_covered)
       : examData.topics_covered !== undefined
@@ -70,7 +68,7 @@ const examModel = {
       examData.difficulty,
       examData.status,
       examData.is_featured,
-      topicsCoveredValue, // ✅ Added topics_covered
+      topicsCoveredValue,
       id,
     ];
 
@@ -78,7 +76,6 @@ const examModel = {
     return result.affectedRows > 0;
   },
 
-  // ✅ DIRECT DELETE: Physically remove from database
   deleteExam: async (id) => {
     const query = `DELETE FROM exams WHERE id = ?`;
     const [result] = await db.execute(query, [id]);
@@ -106,12 +103,10 @@ const examModel = {
 
     if (!rows[0]) return null;
 
-    // ✅ Parse topics_covered JSON if it exists
     if (rows[0].topics_covered && typeof rows[0].topics_covered === "string") {
       try {
         rows[0].topics_covered = JSON.parse(rows[0].topics_covered);
       } catch (e) {
-        // If parsing fails, keep as string or set to empty array
         rows[0].topics_covered = [];
       }
     }
@@ -140,7 +135,6 @@ const examModel = {
 
     if (!rows[0]) return null;
 
-    // ✅ Parse topics_covered JSON if it exists
     if (rows[0].topics_covered && typeof rows[0].topics_covered === "string") {
       try {
         rows[0].topics_covered = JSON.parse(rows[0].topics_covered);
@@ -216,7 +210,6 @@ const examModel = {
       values.push(searchTerm, searchTerm);
     }
 
-    // Sorting
     switch (sort) {
       case "latest":
         query += " ORDER BY e.created_at DESC";
@@ -237,7 +230,6 @@ const examModel = {
 
     const [rows] = await db.execute(query, values);
 
-    // ✅ Parse topics_covered for each exam
     const parsedRows = rows.map((row) => {
       if (row.topics_covered && typeof row.topics_covered === "string") {
         try {
@@ -249,7 +241,6 @@ const examModel = {
       return row;
     });
 
-    // Count query
     let countQuery = `SELECT COUNT(*) as total FROM exams e WHERE 1=1`;
     const countValues = [];
 
@@ -297,13 +288,16 @@ const examModel = {
     };
   },
 
+  // ✅ UPDATED: getAdminPaginatedExams with full sorting support
   getAdminPaginatedExams: async (filters) => {
     const {
       page = 1,
       limit = 12,
       search = "",
       status = null,
+      difficulty = null,
       featured = null,
+      sort = "created_at:desc", // ✅ Default sort
     } = filters;
 
     const offset = (page - 1) * limit;
@@ -330,6 +324,10 @@ const examModel = {
       query += " AND e.status = ?";
       values.push(status);
     }
+    if (difficulty) {
+      query += " AND e.difficulty = ?";
+      values.push(difficulty);
+    }
     if (featured !== null) {
       query += " AND e.is_featured = ?";
       values.push(featured ? 1 : 0);
@@ -340,12 +338,29 @@ const examModel = {
       values.push(searchTerm, searchTerm);
     }
 
-    query += " ORDER BY e.created_at DESC LIMIT ? OFFSET ?";
+    // ✅ Dynamic sorting based on sort parameter
+    switch (sort) {
+      case "created_at:asc":
+        query += " ORDER BY e.created_at ASC";
+        break;
+      case "created_at:desc":
+        query += " ORDER BY e.created_at DESC";
+        break;
+      case "exam_title:asc":
+        query += " ORDER BY e.exam_title ASC";
+        break;
+      case "exam_title:desc":
+        query += " ORDER BY e.exam_title DESC";
+        break;
+      default:
+        query += " ORDER BY e.created_at DESC";
+    }
+
+    query += " LIMIT ? OFFSET ?";
     values.push(limit, offset);
 
     const [rows] = await db.execute(query, values);
 
-    // ✅ Parse topics_covered for each exam
     const parsedRows = rows.map((row) => {
       if (row.topics_covered && typeof row.topics_covered === "string") {
         try {
@@ -357,13 +372,17 @@ const examModel = {
       return row;
     });
 
-    // Count query
+    // Count query (no sorting needed for COUNT)
     let countQuery = `SELECT COUNT(*) as total FROM exams e WHERE 1=1`;
     const countValues = [];
 
     if (status) {
       countQuery += " AND e.status = ?";
       countValues.push(status);
+    }
+    if (difficulty) {
+      countQuery += " AND e.difficulty = ?";
+      countValues.push(difficulty);
     }
     if (featured !== null) {
       countQuery += " AND e.is_featured = ?";
