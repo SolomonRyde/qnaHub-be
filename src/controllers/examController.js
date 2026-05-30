@@ -5,10 +5,8 @@ const examValidation = require("../validations/examValidation.js");
 const examController = {
   createExam: async (req, res) => {
     try {
-
-
-    console.log("📦 BODY:", req.body);
-    console.log("📁 FILE:", req.file);
+      console.log("📦 BODY:", req.body);
+      console.log("📁 FILE:", req.file);
 
       if (!examValidation?.createExamSchema) {
         throw new Error(
@@ -40,7 +38,6 @@ const examController = {
         coverImagePath = `/uploads/exams/${req.file.filename}`;
       }
 
-      // ✅ topics_covered is already normalized by validation, pass through
       const examId = await examModel.createExam({
         ...value,
         slug,
@@ -113,7 +110,6 @@ const examController = {
         coverImagePath = `/uploads/exams/${req.file.filename}`;
       }
 
-      // ✅ Merge existing exam with new values, topics_covered handled by model
       const updated = await examModel.updateExam(id, {
         ...existingExam,
         ...value,
@@ -144,12 +140,10 @@ const examController = {
     }
   },
 
-  // ✅ Simple direct delete - permanently removes from DB
   deleteExam: async (req, res) => {
     try {
       const { id } = req.params;
 
-      // Check if exam exists
       const existingExam = await examModel.findExamById(id);
       if (!existingExam) {
         return res.status(404).json({
@@ -233,6 +227,7 @@ const examController = {
     }
   },
 
+  // ✅ UPDATED: getAdminExams with sort parameter support
   getAdminExams: async (req, res) => {
     try {
       const {
@@ -240,7 +235,9 @@ const examController = {
         limit = 12,
         search = "",
         status = null,
+        difficulty = null,
         featured = null,
+        sort = "created_at:desc", // ✅ Default sort value
       } = req.query;
 
       const result = await examModel.getAdminPaginatedExams({
@@ -248,7 +245,9 @@ const examController = {
         limit: parseInt(limit),
         search,
         status,
+        difficulty,
         featured: featured !== null ? featured === "true" : null,
+        sort, // ✅ Pass sort to model
       });
 
       res.json({
