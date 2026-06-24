@@ -5,6 +5,9 @@ const {
   removeDuplicates,
   getPushPreview,
   pushDistinct,
+  getFinalPushPreview,
+  pushFinalDistinct,
+  validateAll,
 } = require("../controllers/stagingController");
 const { authenticateToken, authorizeAdmin } = require("../middleware/auth");
 
@@ -17,5 +20,23 @@ router.post(
 );
 router.get("/push-preview", authenticateToken, authorizeAdmin, getPushPreview);
 router.post("/push-distinct", authenticateToken, authorizeAdmin, pushDistinct);
+
+// NEW ROUTES
+
+router.post("/validate-all", authenticateToken, authorizeAdmin, validateAll);
+
+router.get(
+  "/final-push-preview",
+  authenticateToken,
+  authorizeAdmin,
+  getFinalPushPreview,
+);
+
+router.post(
+  "/push-final-distinct",
+  authenticateToken,
+  authorizeAdmin,
+  pushFinalDistinct,
+);
 
 module.exports = router;

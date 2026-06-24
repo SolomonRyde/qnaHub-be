@@ -11,6 +11,13 @@ exports.getAll = async (req, res, next) => {
       req.query.correct_answer?.toString().trim().toUpperCase() || "";
     const from = req.query.from?.toString().trim() || "";
     const to = req.query.to?.toString().trim() || "";
+    const difficulty =
+      req.query.difficulty?.toString().trim().toLowerCase() || "";
+
+    // ✅ NEW: Parse industry, category, and sub_category filters
+    const industry = req.query.industry?.toString().trim() || "";
+    const category = req.query.category?.toString().trim() || "";
+    const sub_category = req.query.sub_category?.toString().trim() || "";
 
     const result = await QuestionModel.getAll({
       page,
@@ -20,6 +27,10 @@ exports.getAll = async (req, res, next) => {
       correct_answer,
       from,
       to,
+      difficulty,
+      industry, // ✅ Pass to model
+      category, // ✅ Pass to model
+      sub_category, // ✅ Pass to model
     });
 
     res.json({
@@ -50,10 +61,11 @@ exports.update = async (req, res, next) => {
     }
 
     const affected = await QuestionModel.update(id, updates);
-    if (affected === 0)
+    if (affected === 0) {
       return res
         .status(404)
         .json({ success: false, message: "Question not found" });
+    }
 
     res.json({ success: true, message: "Question updated successfully" });
   } catch (err) {
@@ -64,10 +76,11 @@ exports.update = async (req, res, next) => {
 exports.deleteQuestion = async (req, res, next) => {
   try {
     const affected = await QuestionModel.delete(req.params.id);
-    if (affected === 0)
+    if (affected === 0) {
       return res
         .status(404)
         .json({ success: false, message: "Question not found" });
+    }
 
     res.json({ success: true, message: "Question deleted successfully" });
   } catch (err) {
