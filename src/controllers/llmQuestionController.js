@@ -10,13 +10,15 @@ const llmModel = require("../models/llmModel");
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const UPLOAD_DIR = "/home/u911106075/uploads/generated-questions";
 
-// ✅ Updated Schema with Model Validation
+// ✅ Updated Schema - Changed "medium" to "intermediate"
 const schema = Joi.object({
   exam_id: Joi.number()
     .integer()
     .required()
     .messages({ "any.required": "Exam ID is required" }),
-  difficulty: Joi.string().valid("easy", "medium", "hard").default("medium"),
+  difficulty: Joi.string()
+    .valid("easy", "intermediate", "hard")
+    .default("easy"),
   count: Joi.number().integer().min(1).max(100).default(10),
   prompt: Joi.string().max(1000).allow("").default(""),
   model: Joi.string()
@@ -329,9 +331,15 @@ Before responding, verify: does the array have exactly ${effectiveCount} element
     const updatedDailyStats = await llmModel.getDailyStats(today);
     const overallStats = await llmModel.getOverallStats();
 
+    // ✅ Include exam metadata in response for CSV export
     res.json({
       success: true,
       exam_id,
+      exam_metadata: {
+        industry: exam.industry_name || "",
+        category: exam.category_name || "",
+        subcategory: exam.sub_category_name || "",
+      },
       requested: count,
       ai_generated_count: aiGeneratedCount,
       count: finalQuestions.length,
