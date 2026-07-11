@@ -114,6 +114,14 @@ const examModel = {
     return rows[0];
   },
 
+  /**
+   * Alias used during exam start, evaluation, and result calculation.
+   * Identical to findExamById but semantically named for exam-engine contexts.
+   */
+  getExamById: async (id) => {
+    return examModel.findExamById(id);
+  },
+
   findExamBySlug: async (slug) => {
     const query = `
     SELECT 
