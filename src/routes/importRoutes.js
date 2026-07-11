@@ -5,6 +5,7 @@ const {
   uploadToStaging,
   getHistory,
   getImportDetails,
+  deleteImport,
 } = require("../controllers/importController");
 const { authorizeAdmin, authenticateToken } = require("../middleware/auth");
 
@@ -30,5 +31,7 @@ router.post(
 );
 router.get("/", authenticateToken, authorizeAdmin, getHistory);
 router.get("/:import_id", authenticateToken, authorizeAdmin, getImportDetails);
+
+router.delete("/:import_id", authenticateToken, authorizeAdmin, deleteImport);
 
 module.exports = router;

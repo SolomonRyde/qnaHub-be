@@ -43,27 +43,6 @@ exports.getStagingQuestions = async (req, res, next) => {
   }
 };
 
-// exports.removeDuplicates = async (req, res, next) => {
-//   try {
-//     const importId = parseInt(req.body.import_id);
-//     if (!importId)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Missing import_id" });
-
-//     const result = await duplicateService.detectAndMarkDuplicates(importId);
-//     await ImportModel.updateStage(importId, "DUPLICATES_CHECKED");
-
-//     res.json({
-//       success: true,
-//       message: "Duplicate check completed",
-//       data: result,
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
-
 /**
  * ✅ UPDATED: removeDuplicates now works with or without an import_id
  */
@@ -151,8 +130,6 @@ exports.pushDistinct = async (req, res, next) => {
   }
 };
 
-// ... existing imports and code ...
-
 /**
  * GET /staging-questions/final-push-preview
  */
@@ -206,14 +183,24 @@ exports.pushFinalDistinct = async (req, res, next) => {
     await connection.commit();
 
     // Fetch final stats for the response
+    // const [finalStats] = await connection.query(`
+    //   SELECT
+    //     COUNT(*) as total_staging,
+    //     SUM(CASE WHEN stage_status = 'duplicate_in_prod' THEN 1 ELSE 0 END) as already_in_main_db,
+    //     SUM(CASE WHEN stage_status = 'duplicate_in_staging' THEN 1 ELSE 0 END) as duplicates_inside_staging,
+    //     SUM(CASE WHEN stage_status = 'pushed' THEN 1 ELSE 0 END) as pushed
+    //   FROM staging_questions
+    // `);
+
+    // Inside pushFinalDistinct in stagingController.js
     const [finalStats] = await connection.query(`
-      SELECT 
-        COUNT(*) as total_staging,
-        SUM(CASE WHEN stage_status = 'duplicate_in_prod' THEN 1 ELSE 0 END) as already_in_main_db,
-        SUM(CASE WHEN stage_status = 'duplicate_in_staging' THEN 1 ELSE 0 END) as duplicates_inside_staging,
-        SUM(CASE WHEN stage_status = 'pushed' THEN 1 ELSE 0 END) as pushed
-      FROM staging_questions
-    `);
+                SELECT 
+                  COUNT(*) as total_staging,
+                  SUM(CASE WHEN stage_status = 'duplicate_in_main' THEN 1 ELSE 0 END) as already_in_main_db, -- ✅              Changed to duplicate_in_main
+                  SUM(CASE WHEN stage_status = 'duplicate_in_staging' THEN 1 ELSE 0 END) as duplicates_inside_staging,
+                  SUM(CASE WHEN stage_status = 'pushed' THEN 1 ELSE 0 END) as pushed
+                FROM staging_questions
+`);
 
     res.json({
       success: true,
@@ -256,6 +243,104 @@ exports.validateAll = async (req, res, next) => {
       success: true,
       message: "All staging questions validated successfully",
       data,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * DELETE /staging-questions/:id
+ * Delete a single staging question
+ */
+exports.deleteSingle = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const deletedCount = await StagingModel.deleteSingle(id);
+
+    if (deletedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Question not found in staging",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Question deleted from staging successfully",
+      data: { deletedCount },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * DELETE /staging-questions/duplicates
+ * Delete all duplicate questions from staging
+ */
+exports.deleteDuplicates = async (req, res, next) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const deletedCount = await StagingModel.deleteDuplicates();
+
+    await connection.commit();
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${deletedCount} duplicate questions from staging`,
+      data: { deletedCount },
+    });
+  } catch (err) {
+    await connection.rollback();
+    next(err);
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * DELETE /staging-questions/all
+ * Delete ALL staging questions
+ */
+exports.deleteAllStaging = async (req, res, next) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const deletedCount = await StagingModel.deleteAllStagingQuestions();
+
+    await connection.commit();
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${deletedCount} questions from staging`,
+      data: { deletedCount },
+    });
+  } catch (err) {
+    await connection.rollback();
+    next(err);
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * DELETE /staging-questions/by-status/:status
+ * Delete staging questions by specific status
+ */
+exports.deleteByStatus = async (req, res, next) => {
+  const { status } = req.params;
+
+  try {
+    const deletedCount = await StagingModel.deleteByStatus(status);
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${deletedCount} questions with status "${status}"`,
+      data: { deletedCount },
     });
   } catch (err) {
     next(err);

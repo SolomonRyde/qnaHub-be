@@ -49,18 +49,34 @@ exports.update = async (req, res, next) => {
     const { id } = req.params;
     const updates = req.body;
 
-    // Prevent updating immutable fields directly
-    delete updates.id;
-    delete updates.created_at;
-    delete updates.question_hash;
+    // ✅ FIX: Whitelist ONLY the columns that actually exist in the 'questions' table
+    const allowedFields = [
+      "exam_id",
+      "question",
+      "option_a",
+      "option_b",
+      "option_c",
+      "option_d",
+      "correct_answer",
+      "explanation",
+    ];
 
-    if (Object.keys(updates).length === 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "No update data provided" });
+    // Filter the payload to only include allowed fields
+    const filteredUpdates = {};
+    for (const key of allowedFields) {
+      if (updates[key] !== undefined) {
+        filteredUpdates[key] = updates[key];
+      }
     }
 
-    const affected = await QuestionModel.update(id, updates);
+    if (Object.keys(filteredUpdates).length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No valid update data provided" });
+    }
+
+    const affected = await QuestionModel.update(id, filteredUpdates);
+
     if (affected === 0) {
       return res
         .status(404)
@@ -83,6 +99,36 @@ exports.deleteQuestion = async (req, res, next) => {
     }
 
     res.json({ success: true, message: "Question deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.deleteBulk = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No IDs provided" });
+    }
+
+    // Ensure all IDs are integers to prevent SQL injection
+    const validIds = ids.map((id) => parseInt(id)).filter((id) => !isNaN(id));
+    if (validIds.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid IDs provided" });
+    }
+
+    const affected = await QuestionModel.deleteBulk(validIds);
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${affected} questions`,
+      data: { deletedCount: affected },
+    });
   } catch (err) {
     next(err);
   }
