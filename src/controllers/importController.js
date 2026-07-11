@@ -11,11 +11,11 @@ exports.uploadToStaging = async (req, res, next) => {
 
     const uploadedBy = req.headers["x-username"]?.trim() || "system";
 
-    if (!/^[a-zA-Z0-9_-]{3,50}$/.test(uploadedBy)) {
+    // ✅ FIX: Updated regex to allow spaces, dots (.), and @ (for emails) up to 100 chars
+    if (!/^[a-zA-Z0-9_\-@.\s]{3,100}$/.test(uploadedBy)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid username format. Use letters, numbers, underscores, or hyphens.",
+        message: "Invalid username format. Max 100 characters allowed.",
       });
     }
 
@@ -69,6 +69,37 @@ exports.getImportDetails = async (req, res, next) => {
         .json({ success: false, message: "Import batch not found" });
 
     res.json({ success: true, importData });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * ✅ NEW: Delete an import batch
+ */
+exports.deleteImport = async (req, res, next) => {
+  try {
+    const importId = parseInt(req.params.import_id);
+    if (isNaN(importId)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid import ID" });
+    }
+
+    const affected = await ImportModel.delete(importId);
+
+    if (affected === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Import batch not found" });
+    }
+
+    res.json({
+      success: true,
+      message:
+        "Import batch and associated staging questions deleted successfully",
+      data: { deletedCount: affected },
+    });
   } catch (err) {
     next(err);
   }

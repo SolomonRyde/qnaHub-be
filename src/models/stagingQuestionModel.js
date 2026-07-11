@@ -205,9 +205,8 @@ exports.countByStatus = async (importId) => {
 
   const result = {
     ready_to_push: 0,
-    duplicate_in_csv: 0,
     duplicate_in_staging: 0,
-    duplicate_in_prod: 0,
+    duplicate_in_main: 0, // ✅ Changed from duplicate_in_prod
     pushed: 0,
   };
 
@@ -365,9 +364,9 @@ exports.markProductionDuplicates = async (conn = null) => {
   const [result] = await executor.query(`
     UPDATE staging_questions s
     INNER JOIN questions q ON s.question_hash = q.question_hash
-    SET s.stage_status = 'duplicate_in_prod', 
+    SET s.stage_status = 'duplicate_in_main',  -- ✅ Changed to duplicate_in_main
         s.duplicate_reason = 'Already exists in production'
-    WHERE s.stage_status NOT IN ('pushed', 'duplicate_in_staging')
+    WHERE s.stage_status NOT IN ('pushed', 'duplicate_in_staging', 'duplicate_in_main') -- ✅ Exclude itself
   `);
   return result.affectedRows;
 };
@@ -444,4 +443,47 @@ exports.validateAllStaging = async () => {
     already_in_main_db,
     errors,
   };
+};
+
+/**
+ * Delete a single staging question by stage_id
+ */
+exports.deleteSingle = async (stageId) => {
+  const [result] = await db.query(
+    "DELETE FROM staging_questions WHERE stage_id = ?",
+    [stageId],
+  );
+  return result.affectedRows;
+};
+
+/**
+ * Delete all duplicate questions from staging
+ * Removes questions marked as duplicate_in_staging, already_in_main_db, or duplicate
+ */
+exports.deleteDuplicates = async () => {
+  const [result] = await db.query(
+    `DELETE FROM staging_questions 
+     WHERE stage_status IN ('duplicate_in_staging', 'duplicate_in_main')`, // ✅ Changed to duplicate_in_main
+  );
+  return result.affectedRows;
+};
+
+/**
+ * Delete all staging questions
+ * WARNING: This removes ALL questions from staging table
+ */
+exports.deleteAllStagingQuestions = async () => {
+  const [result] = await db.query(`DELETE FROM staging_questions`);
+  return result.affectedRows;
+};
+
+/**
+ * Delete staging questions by status
+ */
+exports.deleteByStatus = async (status) => {
+  const [result] = await db.query(
+    `DELETE FROM staging_questions WHERE stage_status = ?`,
+    [status],
+  );
+  return result.affectedRows;
 };

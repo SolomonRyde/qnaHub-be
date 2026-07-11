@@ -138,3 +138,33 @@ exports.updateStage = async (importId, stage, stats = null) => {
 
   await db.query(sql, params);
 };
+
+/**
+ * ✅ NEW: Delete an import batch and all its associated staging questions
+ */
+exports.delete = async (importId) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 1. Delete all staging questions associated with this import
+    await connection.query(
+      "DELETE FROM staging_questions WHERE import_id = ?",
+      [importId],
+    );
+
+    // 2. Delete the import record itself
+    const [result] = await connection.query(
+      "DELETE FROM question_imports WHERE id = ?",
+      [importId],
+    );
+
+    await connection.commit();
+    return result.affectedRows;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};

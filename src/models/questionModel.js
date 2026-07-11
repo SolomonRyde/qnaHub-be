@@ -202,10 +202,52 @@ exports.delete = async (id) => {
   return result.affectedRows;
 };
 
+exports.deleteBulk = async (ids) => {
+  if (!ids || !ids.length) return 0;
+  const placeholders = ids.map(() => "?").join(",");
+  const sql = `DELETE FROM questions WHERE id IN (${placeholders})`;
+  const [result] = await db.query(sql, ids);
+  return result.affectedRows;
+};
+
 exports.getExistingHashes = async (examIds) => {
   if (!examIds.length) return new Set();
   const placeholders = examIds.map(() => "?").join(",");
   const sql = `SELECT CONCAT(exam_id, ":", question_hash) as composite_hash FROM questions WHERE exam_id IN (${placeholders})`;
   const [rows] = await db.query(sql, examIds);
   return new Set(rows.map((r) => r.composite_hash));
+};
+
+/**
+ * Fetch questions for an active exam session.
+ *
+ * ⚠️  SECURITY: correct_answer and explanation are intentionally excluded
+ * to prevent cheating via the browser network tab.
+ * Evaluation happens server-side in examAttemptController → submitExam().
+ */
+exports.getQuestionsForExam = async (exam_id, limit) => {
+  const sql = `SELECT id, question, option_a, option_b, option_c, option_d 
+               FROM questions 
+               WHERE exam_id = ? 
+               ORDER BY RAND() 
+               LIMIT ?`;
+  const [rows] = await db.execute(sql, [exam_id, limit]);
+  return rows;
+};
+
+/**
+ * Fetch correct answers for all questions belonging to an exam.
+ * Used ONLY on the backend during answer evaluation — never sent to the client.
+ */
+exports.getCorrectAnswersForExam = async (exam_id, questionIds) => {
+  if (!questionIds || questionIds.length === 0) return {};
+
+  const placeholders = questionIds.map(() => "?").join(",");
+  // We filter by exam_id to prevent users from submitting random question IDs from other exams
+  const sql = `SELECT id, correct_answer FROM questions WHERE exam_id = ? AND id IN (${placeholders})`;
+
+  const params = [exam_id, ...questionIds];
+  const [rows] = await db.execute(sql, params);
+
+  return Object.fromEntries(rows.map((r) => [r.id, r.correct_answer]));
 };
