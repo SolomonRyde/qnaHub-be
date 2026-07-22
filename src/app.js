@@ -19,6 +19,8 @@ const errorHandler = require("./middleware/errorHandler");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 
+const requestLogger = require("./middleware/requestLogger");
+
 const app = express();
 
 app.set("trust proxy", 1);
@@ -64,6 +66,8 @@ app.use(
     max: 100, // limit each IP
   }),
 );
+
+app.use(requestLogger);
 
 app.use("/api/v1/llm/questions", llmQuestionRoutes);
 app.use("/api/v1/auth", authRoutes);
