@@ -28,6 +28,22 @@ const loginSchema = Joi.object({
   password: Joi.string().required(),
 });
 
+const updateProfileSchema = Joi.object({
+  name: Joi.string().min(2).max(100).required(),
+  phone_number: Joi.string().length(10).required(),
+  country_code: Joi.string().min(2).max(4).default("+1"),
+});
+
+const updateEmailSchema = Joi.object({
+  email: Joi.string().email().required(),
+  current_password: Joi.string().required(),
+});
+
+const changePasswordSchema = Joi.object({
+  current_password: Joi.string().required(),
+  new_password: Joi.string().min(6).required(),
+});
+
 // Generate random 6-digit OTP
 const generateOTP = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
@@ -90,30 +106,54 @@ exports.signup = catchAsync(async (req, res, next) => {
   });
 });
 
+// UPDATE THIS FUNCTION
 exports.verifyOTP = catchAsync(async (req, res, next) => {
   const { error, value } = verifyOTPSchema.validate(req.body);
   if (error) throwError(error.details[0].message, 400);
 
   const { email, otp } = value;
 
-  const isValid = await User.verifyOTP(email, otp);
-  if (!isValid) throwError("Invalid or expired OTP", 400);
+  // ✅ FIX: Use Model method instead of pool.query
+  const user = await User.findByOTP(otp);
 
-  const user = await User.findByEmail(email);
-  const token = generateToken(user);
+  if (!user) throwError("Invalid or expired OTP", 400);
+
+  // Check expiry
+  if (new Date() > new Date(user.otp_expiry))
+    throwError("Invalid or expired OTP", 400);
+
+  // Check if the OTP matches the input (redundant but safe)
+  if (user.otp !== otp) throwError("Invalid OTP", 400);
+
+  // ✅ CHECK IF THIS IS AN EMAIL CHANGE VERIFICATION
+  // If the user has a pending_email, and the OTP was sent to that pending email
+  if (user.pending_email && user.pending_email === email) {
+    await User.finalizeEmailChange(user.id);
+  } else {
+    // Standard signup/verification flow
+    // Note: Your existing User.verifyOTP expects email, but we already found user by OTP.
+    // We can just manually update here or call the model method.
+    // Let's call the model method to keep logic consistent.
+    await User.verifyOTP(user.email, otp);
+  }
+
+  // Refresh user data after update
+  const updatedUser = await User.findById(user.id);
+
+  const token = generateToken(updatedUser);
   setAuthCookie(res, token);
 
   res.json({
     success: true,
-    message: "Email verified successfully. Token generated.",
-    email,
+    message: "Email verified successfully.",
     token,
     user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      phone_number: user.phone_number,
-      role: user.role,
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      phone_number: updatedUser.phone_number,
+      role: updatedUser.role,
+      is_verified: updatedUser.is_verified,
     },
   });
 });
@@ -162,6 +202,7 @@ exports.login = catchAsync(async (req, res, next) => {
   });
 });
 
+// UPDATE THIS FUNCTION
 exports.resendOTP = async (req, res, next) => {
   try {
     const schema = Joi.object({
@@ -173,19 +214,31 @@ exports.resendOTP = async (req, res, next) => {
 
     const { email } = value;
 
-    const user = await User.findByEmail(email);
+    // Try finding by email first (for signup)
+    let user = await User.findByEmail(email);
+
+    // If not found, maybe it's a pending email change?
+    // ✅ FIX: Use Model method instead of pool.query
+    if (!user) {
+      user = await User.findByPendingEmail(email);
+    }
+
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    if (user.is_verified)
+    if (user.is_verified && !user.pending_email) {
       return res.status(400).json({ error: "Email already verified" });
+    }
 
     // Generate and send new OTP
     const otp = generateOTP();
     const expiry = new Date(Date.now() + 10 * 60 * 1000);
     const otpLastSent = new Date();
 
-    await User.updateOTP(email, otp, expiry, otpLastSent);
-    await sendOTP(email, otp, user.name); // Pass user name here
+    // Store OTP on main record (using current email in DB)
+    await User.updateOTP(user.email, otp, expiry, otpLastSent);
+
+    // Send OTP to the requested email (which might be the pending one)
+    await sendOTP(email, otp, user.name);
 
     res.json({
       message: "OTP resent successfully",
@@ -272,5 +325,131 @@ exports.getMe = catchAsync(async (req, res) => {
   res.status(200).json({
     success: true,
     user: meUser,
+  });
+});
+
+// ─── Self-service profile management ──────────────────────────────────────
+
+/**
+ * PATCH /api/v1/auth/profile
+ * Updates name, phone_number, country_code for the logged-in user.
+ * Does NOT touch email or password — those have their own endpoints
+ * because they need extra verification.
+ */
+exports.updateProfile = catchAsync(async (req, res) => {
+  if (!req.user?.id) throwError("User not authenticated", 401);
+
+  const { error, value } = updateProfileSchema.validate(req.body);
+  if (error) throwError(error.details[0].message, 400);
+
+  await User.updateProfile(req.user.id, value);
+
+  const updatedUser = await User.findById(req.user.id);
+  delete updatedUser.password;
+  delete updatedUser.otp;
+  delete updatedUser.otp_expiry;
+  delete updatedUser.reset_token;
+  delete updatedUser.reset_token_expiry;
+
+  res.json({
+    success: true,
+    message: "Profile updated successfully",
+    user: updatedUser,
+  });
+});
+
+/**
+ * PATCH /api/v1/auth/email
+ * Changes the account email. Requires the current password as proof of
+ * ownership, then re-uses the existing OTP flow (generateOTP / sendOTP /
+ * User.updateOTP) so the new address is verified exactly like at signup.
+ * The account is marked unverified until the OTP is confirmed via the
+ * existing POST /verify-otp endpoint.
+ */
+
+// UPDATE THIS FUNCTION
+exports.updateEmail = catchAsync(async (req, res) => {
+  if (!req.user?.id) throwError("User not authenticated", 401);
+
+  const { error, value } = updateEmailSchema.validate(req.body);
+  if (error) throwError(error.details[0].message, 400);
+
+  const { email: newEmail, current_password } = value;
+
+  const currentUser = await User.findById(req.user.id);
+  if (!currentUser) throwError("User not found", 404);
+
+  const isMatch = await User.comparePassword(
+    current_password,
+    currentUser.password,
+  );
+  if (!isMatch) throwError("Current password is incorrect", 401);
+
+  if (newEmail.toLowerCase() === currentUser.email.toLowerCase()) {
+    throwError("New email must be different from your current email", 400);
+  }
+
+  const taken = await User.emailExists(newEmail, req.user.id);
+  if (taken) throwError("This email is already in use", 409);
+
+  // ✅ CHANGE: Do NOT update main email yet. Store in pending.
+  await User.updateEmailRequest(req.user.id, newEmail);
+
+  const otp = generateOTP();
+  const expiry = new Date(Date.now() + 10 * 60 * 1000);
+  const otpLastSent = new Date();
+
+  // Save OTP against the user's main record (so we can find them by OTP later)
+  await User.updateOTP(currentUser.email, otp, expiry, otpLastSent);
+
+  // Send OTP to the NEW email
+  await sendOTP(newEmail, otp, currentUser.name);
+
+  res.json({
+    success: true,
+    message:
+      "Verification code sent to your new email. Verify it to finish the change.",
+    email: newEmail, // Return the pending email so frontend knows what to verify
+    ...(process.env.NODE_ENV === "development" && { otp }),
+  });
+});
+
+/**
+ * PATCH /api/v1/auth/password
+ * Changes the account password. Requires the current password.
+ */
+exports.changePassword = catchAsync(async (req, res) => {
+  if (!req.user?.id) throwError("User not authenticated", 401);
+
+  const { error, value } = changePasswordSchema.validate(req.body);
+  if (error) throwError(error.details[0].message, 400);
+
+  const { current_password, new_password } = value;
+
+  const currentUser = await User.findById(req.user.id);
+  if (!currentUser) throwError("User not found", 404);
+
+  const isMatch = await User.comparePassword(
+    current_password,
+    currentUser.password,
+  );
+  if (!isMatch) throwError("Current password is incorrect", 401);
+
+  const isSamePassword = await User.comparePassword(
+    new_password,
+    currentUser.password,
+  );
+  if (isSamePassword) {
+    throwError(
+      "New password must be different from your current password",
+      400,
+    );
+  }
+
+  await User.updatePassword(currentUser.email, new_password);
+
+  res.json({
+    success: true,
+    message: "Password changed successfully",
   });
 });
