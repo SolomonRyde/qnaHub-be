@@ -48,13 +48,30 @@ exports.getByImportId = async ({
   search = "",
   exam_id = "",
   stage_status = "",
+  status = "all", // New parameter: 'pending', 'pushed', 'all'
 } = {}) => {
   const offset = (page - 1) * limit;
 
-  // Base condition: Exclude pushed questions
-  const whereConditions = ["qs.stage_status != 'pushed'"];
+  // Base condition array
+  const whereConditions = [];
   const params = [];
 
+  // 1. Handle the high-level 'status' filter
+  switch (status) {
+    case "pushed":
+      whereConditions.push("qs.stage_status = 'pushed'");
+      break;
+    case "all":
+      // No condition added for 'all'
+      break;
+    case "pending":
+    default:
+      // Default behavior: exclude pushed
+      whereConditions.push("qs.stage_status != 'pushed'");
+      break;
+  }
+
+  // 2. Handle specific filters
   if (import_id) {
     whereConditions.push("qs.import_id = ?");
     params.push(import_id);
@@ -76,59 +93,17 @@ exports.getByImportId = async ({
     params.push(stage_status);
   }
 
-  const whereClause = "WHERE " + whereConditions.join(" AND ");
+  // Build WHERE clause safely
+  const whereClause =
+    whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
 
   // COUNT query with all JOINs
-  const countSql = `
-    SELECT COUNT(qs.stage_id) as total 
-    FROM staging_questions qs
-    LEFT JOIN question_imports qib ON qib.id = qs.import_id
-    LEFT JOIN exams e ON e.id = qs.exam_id
-    LEFT JOIN industries i ON i.id = e.industry_id
-    LEFT JOIN categories c ON c.id = e.category_id
-    LEFT JOIN subcategories sc ON sc.id = e.sub_category_id
-    ${whereClause}
-  `;
+  const countSql = `SELECT COUNT(qs.stage_id) as total FROM staging_questions qs LEFT JOIN question_imports qib ON qib.id = qs.import_id LEFT JOIN exams e ON e.id = qs.exam_id LEFT JOIN industries i ON i.id = e.industry_id LEFT JOIN categories c ON c.id = e.category_id LEFT JOIN subcategories sc ON sc.id = e.sub_category_id ${whereClause}`;
   const [countResult] = await db.query(countSql, params);
   const total = countResult[0].total;
 
   // DATA query with all JOINs, explicit columns, and pagination
-  const dataSql = `
-    SELECT 
-      qs.stage_id, 
-      qs.import_id, 
-      qib.file_name, 
-      qs.exam_id, 
-      e.difficulty,
-      e.industry_id,
-      e.category_id,
-      e.sub_category_id,
-      i.industry_name AS industry,
-      c.category_name AS category,
-      sc.sub_category_name AS sub_category,
-      qs.question, 
-      qs.option_a, 
-      qs.option_b, 
-      qs.option_c, 
-      qs.option_d, 
-      qs.correct_answer, 
-      qs.explanation, 
-      qs.question_hash, 
-      qs.imported_by, 
-      qs.stage_status, 
-      qs.duplicate_reason, 
-      qs.created_at,
-      qib.created_at AS import_created_at
-    FROM staging_questions qs
-    LEFT JOIN question_imports qib ON qib.id = qs.import_id
-    LEFT JOIN exams e ON e.id = qs.exam_id
-    LEFT JOIN industries i ON i.id = e.industry_id
-    LEFT JOIN categories c ON c.id = e.category_id
-    LEFT JOIN subcategories sc ON sc.id = e.sub_category_id
-    ${whereClause}
-    ORDER BY qs.created_at DESC, qs.stage_id DESC 
-    LIMIT ? OFFSET ?
-  `;
+  const dataSql = `SELECT qs.stage_id, qs.import_id, qib.file_name, qs.exam_id, e.difficulty, e.industry_id, e.category_id, e.sub_category_id, i.industry_name AS industry, c.category_name AS category, sc.sub_category_name AS sub_category, qs.question, qs.option_a, qs.option_b, qs.option_c, qs.option_d, qs.correct_answer, qs.explanation, qs.question_hash, qs.imported_by, qs.stage_status, qs.duplicate_reason, qs.created_at, qib.created_at AS import_created_at FROM staging_questions qs LEFT JOIN question_imports qib ON qib.id = qs.import_id LEFT JOIN exams e ON e.id = qs.exam_id LEFT JOIN industries i ON i.id = e.industry_id LEFT JOIN categories c ON c.id = e.category_id LEFT JOIN subcategories sc ON sc.id = e.sub_category_id ${whereClause} ORDER BY qs.created_at DESC, qs.stage_id DESC LIMIT ? OFFSET ?`;
   const dataParams = [...params, limit, offset];
   const [rows] = await db.query(dataSql, dataParams);
 
@@ -147,6 +122,7 @@ exports.getByImportId = async ({
       search: search || null,
       exam_id: exam_id || null,
       stage_status: stage_status || null,
+      status: status || "pending", // Return the selected status
     },
   };
 };

@@ -9,7 +9,15 @@ const db = require("../config/db");
  */
 exports.getStagingQuestions = async (req, res, next) => {
   try {
-    const { import_id, search, exam_id, stage_status, page, limit } = req.query;
+    const {
+      import_id,
+      search,
+      exam_id,
+      stage_status,
+      status = "all", // Default to pending to preserve current behavior
+      page,
+      limit,
+    } = req.query;
 
     // Parse pagination params with defaults
     const pageNum = Math.max(1, parseInt(page) || 1);
@@ -22,6 +30,7 @@ exports.getStagingQuestions = async (req, res, next) => {
       search: search || "",
       exam_id: exam_id || "",
       stage_status: stage_status || "",
+      status: status, // Pass the new status parameter
     });
 
     res.json({
