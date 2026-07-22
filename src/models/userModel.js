@@ -1,26 +1,44 @@
-const pool = require('../config/db');
-const bcrypt = require('bcrypt');
+const pool = require("../config/db");
+const bcrypt = require("bcrypt");
 
 exports.findByEmail = (email) =>
-  pool.query('SELECT * FROM users WHERE email = ?', [email])
+  pool
+    .query("SELECT * FROM users WHERE email = ?", [email])
     .then(([rows]) => rows[0] || null);
 
 exports.findById = (id) =>
-  pool.query('SELECT * FROM users WHERE id = ?', [id])
+  pool
+    .query("SELECT * FROM users WHERE id = ?", [id])
     .then(([rows]) => rows[0] || null);
 
-exports.create = async ({ email, password, name, phone_number, country_code, role, status }) => {
+exports.create = async ({
+  email,
+  password,
+  name,
+  phone_number,
+  country_code,
+  role,
+  status,
+}) => {
   const hashedPassword = await bcrypt.hash(password, 10);
   return pool.execute(
-    'INSERT INTO users (email, password, name, phone_number, country_code, role, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [email, hashedPassword, name, phone_number, country_code || '+1', role || 'user', status || 1]
+    "INSERT INTO users (email, password, name, phone_number, country_code, role, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [
+      email,
+      hashedPassword,
+      name,
+      phone_number,
+      country_code || "+1",
+      role || "user",
+      status || 1,
+    ],
   );
 };
 
 exports.updateOTP = (email, otp, expiry, otpLastSent) =>
   pool.execute(
-    'UPDATE users SET otp = ?, otp_expiry = ?, otp_last_sent = ? WHERE email = ?',
-    [otp, expiry, otpLastSent, email]
+    "UPDATE users SET otp = ?, otp_expiry = ?, otp_last_sent = ? WHERE email = ?",
+    [otp, expiry, otpLastSent, email],
   );
 
 exports.updatePassword = async (email, newPassword) => {
@@ -32,7 +50,7 @@ exports.updatePassword = async (email, newPassword) => {
          reset_token = NULL, 
          reset_token_expiry = NULL 
      WHERE email = ?`,
-    [hashedPassword, email]
+    [hashedPassword, email],
   );
 };
 
@@ -40,11 +58,11 @@ exports.verifyOTP = async (email, otp) => {
   const user = await exports.findByEmail(email);
   if (!user) return false;
   if (user.otp !== otp || new Date() > new Date(user.otp_expiry)) return false;
-  
+
   // Clear OTP and mark as verified
   await pool.execute(
-    'UPDATE users SET otp = NULL, otp_expiry = NULL, is_verified = 1 WHERE email = ?', 
-    [email]
+    "UPDATE users SET otp = NULL, otp_expiry = NULL, is_verified = 1 WHERE email = ?",
+    [email],
   );
   return true;
 };
@@ -53,7 +71,7 @@ exports.saveResetToken = (email, token, expiry) => {
     `UPDATE users 
      SET reset_token = ?, reset_token_expiry = ? 
      WHERE email = ?`,
-    [token, expiry, email]
+    [token, expiry, email],
   );
 };
 
@@ -62,19 +80,19 @@ exports.findByResetToken = async (token) => {
     `SELECT * FROM users 
      WHERE reset_token = ? 
      AND reset_token_expiry > NOW()`,
-    [token]
+    [token],
   );
 
   return rows[0] || null;
 };
 
-
 exports.updateLastLogin = (id) =>
-  pool.execute('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [id]);
+  pool.execute("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?", [
+    id,
+  ]);
 
 exports.comparePassword = (password, hashedPassword) =>
   bcrypt.compare(password, hashedPassword);
-
 
 // Admin stats method #f04c4c
 
@@ -93,45 +111,53 @@ exports.getUserStats = async () => {
   return rows[0];
 };
 
-exports.getAllUsers = async ({ page, limit, search, role, status, verified, deleted }) => {
+exports.getAllUsers = async ({
+  page,
+  limit,
+  search,
+  role,
+  status,
+  verified,
+  deleted,
+}) => {
   const offset = (page - 1) * limit;
 
-  let where = 'WHERE 1=1';
+  let where = "WHERE 1=1";
   const params = [];
 
   // 🔍 Search (name or email)
   if (search) {
-    where += ' AND (name LIKE ? OR email LIKE ?)';
+    where += " AND (name LIKE ? OR email LIKE ?)";
     params.push(`%${search}%`, `%${search}%`);
   }
 
   // 🎭 Role filter
   if (role) {
-    where += ' AND role = ?';
+    where += " AND role = ?";
     params.push(role);
   }
 
   // ⚡ Status filter
   if (status !== undefined) {
-    where += ' AND status = ?';
+    where += " AND status = ?";
     params.push(status);
   }
 
   // 👇 add after status filter
   if (verified !== undefined) {
-  where += ' AND is_verified = ?';
-  params.push(verified);
+    where += " AND is_verified = ?";
+    params.push(verified);
   }
 
   if (deleted !== undefined) {
-  where += ' AND is_deleted = ?';
-  params.push(deleted);
+    where += " AND is_deleted = ?";
+    params.push(deleted);
   }
 
   // 📊 Total count
   const [countResult] = await pool.query(
     `SELECT COUNT(*) as total FROM users ${where}`,
-    params
+    params,
   );
 
   const total = countResult[0].total;
@@ -143,7 +169,7 @@ exports.getAllUsers = async ({ page, limit, search, role, status, verified, dele
      ${where}
      ORDER BY created_at DESC
      LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    [...params, limit, offset],
   );
 
   return {
@@ -151,29 +177,28 @@ exports.getAllUsers = async ({ page, limit, search, role, status, verified, dele
     page,
     limit,
     totalPages: Math.ceil(total / limit),
-    data: users
+    data: users,
   };
 };
 
 // 🟡 SOFT DELETE
 exports.softDeleteUser = (id) => {
-  return pool.execute(
-    `UPDATE users 
+  return pool
+    .execute(
+      `UPDATE users 
      SET is_deleted = 1, status = 0 
      WHERE id = ? AND is_deleted = 0`,
-    [id]
-  ).then(([result]) => result);
+      [id],
+    )
+    .then(([result]) => result);
 };
-
 
 // 🔴 HARD DELETE
 exports.hardDeleteUser = (id) => {
-  return pool.execute(
-    `DELETE FROM users WHERE id = ?`,
-    [id]
-  ).then(([result]) => result);
+  return pool
+    .execute(`DELETE FROM users WHERE id = ?`, [id])
+    .then(([result]) => result);
 };
-
 
 // 🟡 BULK SOFT DELETE
 exports.bulkSoftDeleteUsers = async (userIds) => {
@@ -181,19 +206,18 @@ exports.bulkSoftDeleteUsers = async (userIds) => {
     `UPDATE users 
      SET is_deleted = 1, status = 0 
      WHERE id IN (?) AND is_deleted = 0`,
-    [userIds]
+    [userIds],
   );
 
   return result;
 };
-
 
 // 🔴 BULK HARD DELETE
 exports.bulkHardDeleteUsers = async (userIds) => {
   const [result] = await pool.query(
     `DELETE FROM users 
      WHERE id IN (?)`,
-    [userIds]
+    [userIds],
   );
 
   return result;
@@ -205,12 +229,11 @@ exports.restoreUser = async (id) => {
     `UPDATE users
      SET is_deleted = 0, status = 1
      WHERE id = ? AND is_deleted = 1`,
-    [id]
+    [id],
   );
 
   return result;
 };
-
 
 // 🟢 BULK RESTORE
 exports.bulkRestoreUsers = async (userIds) => {
@@ -218,7 +241,7 @@ exports.bulkRestoreUsers = async (userIds) => {
     `UPDATE users
      SET is_deleted = 0, status = 1
      WHERE id IN (?) AND is_deleted = 1`,
-    [userIds]
+    [userIds],
   );
 
   return result;
@@ -240,7 +263,7 @@ exports.getUserById = async (id) => {
         created_at
      FROM users
      WHERE id = ?`,
-    [id]
+    [id],
   );
 
   return rows[0] || null;
@@ -249,17 +272,98 @@ exports.getUserById = async (id) => {
 exports.getUsersByIds = async (ids) => {
   const [rows] = await pool.query(
     `SELECT id, role FROM users WHERE id IN (?)`,
-    [ids]
+    [ids],
   );
 
   return rows;
 };
 
 exports.updateUserRole = async (id, role) => {
-  const [result] = await pool.query(
-    `UPDATE users SET role = ? WHERE id = ?`,
-    [role, id]
-  );
+  const [result] = await pool.query(`UPDATE users SET role = ? WHERE id = ?`, [
+    role,
+    id,
+  ]);
 
   return result;
+};
+
+// ─── Self-service profile management ──────────────────────────────────────
+
+// Check if an email is already taken by a DIFFERENT user (used on email change).
+exports.emailExists = async (email, excludeId) => {
+  const [rows] = await pool.query(
+    "SELECT id FROM users WHERE email = ? AND id != ?",
+    [email, excludeId],
+  );
+  return rows.length > 0;
+};
+
+// Update the editable, non-sensitive profile fields.
+exports.updateProfile = async (id, { name, phone_number, country_code }) => {
+  const [result] = await pool.execute(
+    "UPDATE users SET name = ?, phone_number = ?, country_code = ? WHERE id = ?",
+    [name, phone_number, country_code, id],
+  );
+  return result.affectedRows > 0;
+};
+
+// Change the account email. Marks the account unverified again since the
+// new address hasn't been proven to belong to the user yet — the caller
+// is expected to immediately trigger an OTP to the new address.
+exports.updateEmail = async (id, newEmail) => {
+  const [result] = await pool.execute(
+    "UPDATE users SET email = ?, is_verified = 0 WHERE id = ?",
+    [newEmail, id],
+  );
+  return result.affectedRows > 0;
+};
+
+exports.setPendingEmail = async (id, email) => {
+  const [result] = await pool.execute(
+    "UPDATE users SET pending_email = ? WHERE id = ?",
+    [email, id],
+  );
+  return result.affectedRows > 0;
+};
+
+exports.getPendingEmail = async (id) => {
+  const [rows] = await pool.query(
+    "SELECT pending_email FROM users WHERE id = ?",
+    [id],
+  );
+  return rows[0]?.pending_email || null;
+};
+
+exports.finalizeEmailChange = async (id) => {
+  // Get the pending email first
+  const pendingEmail = await exports.getPendingEmail(id);
+  if (!pendingEmail) return false;
+
+  // Update the main email, clear pending, and mark as verified
+  const [result] = await pool.execute(
+    "UPDATE users SET email = ?, pending_email = NULL, is_verified = 1 WHERE id = ?",
+    [pendingEmail, id],
+  );
+
+  return result.affectedRows > 0;
+};
+
+// Modify your existing updateEmail function to NOT update the main email yet
+// Rename it to updateEmailRequest to be clear
+exports.updateEmailRequest = async (id, newEmail) => {
+  // Just store it in pending
+  return exports.setPendingEmail(id, newEmail);
+};
+
+exports.findByOTP = async (otp) => {
+  const [rows] = await pool.query("SELECT * FROM users WHERE otp = ?", [otp]);
+  return rows[0] || null;
+};
+
+exports.findByPendingEmail = async (email) => {
+  const [rows] = await pool.query(
+    "SELECT * FROM users WHERE pending_email = ?",
+    [email],
+  );
+  return rows[0] || null;
 };
