@@ -164,7 +164,8 @@ exports.getAllUsers = async ({
 
   // 📦 Fetch users
   const [users] = await pool.query(
-    `SELECT id, name, email, role, status, last_login, is_deleted, created_at
+    `SELECT id, name, email, role, status, last_login, is_deleted, created_at,
+          referral_source, referral_name
      FROM users
      ${where}
      ORDER BY created_at DESC
@@ -260,7 +261,9 @@ exports.getUserById = async (id) => {
         is_verified,
         is_deleted,
         last_login,
-        created_at
+        created_at,
+        referral_source,
+        referral_name
      FROM users
      WHERE id = ?`,
     [id],
@@ -305,6 +308,27 @@ exports.updateProfile = async (id, { name, phone_number, country_code }) => {
     [name, phone_number, country_code, id],
   );
   return result.affectedRows > 0;
+};
+
+// Save the user's own referral source + name. Caller already scopes to
+// req.user.id — this is the self-service endpoint, never admin write.
+exports.updateReferral = async (id, { referral_source, referral_name }) => {
+  const [result] = await pool.execute(
+    "UPDATE users SET referral_source = ?, referral_name = ? WHERE id = ?",
+    [referral_source, referral_name, id],
+  );
+  return result.affectedRows > 0;
+};
+
+// True only when the user has completed BOTH referral fields. Used by the
+// exam-start gate (Phase 3) to decide whether referral details are missing.
+exports.hasReferral = async (id) => {
+  const [rows] = await pool.query(
+    "SELECT referral_source, referral_name FROM users WHERE id = ?",
+    [id],
+  );
+  const user = rows[0];
+  return !!(user && user.referral_source && user.referral_name);
 };
 
 // Change the account email. Marks the account unverified again since the

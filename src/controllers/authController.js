@@ -34,6 +34,15 @@ const updateProfileSchema = Joi.object({
   country_code: Joi.string().min(2).max(4).default("+1"),
 });
 
+// Referral source allowlist — MUST stay in sync with the frontend constant
+// `src/lib/referralSources.js`. Values are stored verbatim (display = value).
+// "Other" is a free-text catch-all chosen by the user, so Joi only enforces a
+// non-empty string here; the dropdown drives the standard options.
+const updateReferralSchema = Joi.object({
+  referral_source: Joi.string().trim().min(1).max(50).required(),
+  referral_name: Joi.string().trim().min(1).max(255).required(),
+});
+
 const updateEmailSchema = Joi.object({
   email: Joi.string().email().required(),
   current_password: Joi.string().required(),
@@ -321,6 +330,9 @@ exports.getMe = catchAsync(async (req, res) => {
   delete meUser.otp_expiry;
   delete meUser.reset_token;
   delete meUser.reset_token_expiry;
+  // Not needed by the frontend and only leaks internal auth state — strip too.
+  delete meUser.otp_last_sent;
+  delete meUser.pending_email;
 
   res.status(200).json({
     success: true,
@@ -350,10 +362,43 @@ exports.updateProfile = catchAsync(async (req, res) => {
   delete updatedUser.otp_expiry;
   delete updatedUser.reset_token;
   delete updatedUser.reset_token_expiry;
+  // Not needed by the frontend and only leaks internal auth state — strip too.
+  delete updatedUser.otp_last_sent;
+  delete updatedUser.pending_email;
 
   res.json({
     success: true,
     message: "Profile updated successfully",
+    user: updatedUser,
+  });
+});
+
+/**
+ * PATCH /api/v1/auth/referral
+ * Saves the logged-in user's referral source + name. Scoped to req.user.id —
+ * there is no admin path that writes these fields.
+ */
+exports.updateReferral = catchAsync(async (req, res) => {
+  if (!req.user?.id) throwError("User not authenticated", 401);
+
+  const { error, value } = updateReferralSchema.validate(req.body);
+  if (error) throwError(error.details[0].message, 400);
+
+  await User.updateReferral(req.user.id, value);
+
+  const updatedUser = await User.findById(req.user.id);
+  delete updatedUser.password;
+  delete updatedUser.otp;
+  delete updatedUser.otp_expiry;
+  delete updatedUser.reset_token;
+  delete updatedUser.reset_token_expiry;
+  // Not needed by the frontend and only leaks internal auth state — strip too.
+  delete updatedUser.otp_last_sent;
+  delete updatedUser.pending_email;
+
+  res.json({
+    success: true,
+    message: "Referral details saved successfully",
     user: updatedUser,
   });
 });

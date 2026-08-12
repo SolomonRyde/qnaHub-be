@@ -2,6 +2,7 @@ const examModel = require("../models/examModel");
 const examAttemptModel = require("../models/examAttemptModel");
 const userAnswerModel = require("../models/userAnswerModel");
 const QuestionModel = require("../models/questionModel");
+const User = require("../models/userModel");
 const ExcelJS = require("exceljs"); // Import exceljs
 
 // Pass percentage required to pass the exam (configurable per exam in a future iteration)
@@ -32,7 +33,17 @@ exports.startExam = async (req, res) => {
         .status(403)
         .json({ success: false, message: "Exam is not available" });
     }
-    // 2. Create attempt
+    // 2. Check referral required (Phase 3 gate) — exam can only start after
+    // the user has saved referral source + name.
+    const hasReferral = await User.hasReferral(userId);
+    if (!hasReferral) {
+      return res.status(428).json({
+        success: false,
+        code: "REFERRAL_REQUIRED",
+        message: "Referral details required",
+      });
+    }
+    // 3. Create attempt
     const attemptId = await examAttemptModel.createAttempt({
       user_id: userId,
       exam_id: examId,
@@ -339,6 +350,7 @@ exports.getAllAttemptsAdmin = async (req, res) => {
       status = null,
       passed = null,
       examId = null,
+      referralSource = null,
       sort = "created_at:desc",
       startDate = null,
       endDate = null,
@@ -349,6 +361,7 @@ exports.getAllAttemptsAdmin = async (req, res) => {
       status: status || null,
       passed: passed === null || passed === "" ? null : passed === "true",
       examId: examId ? parseInt(examId) : null,
+      referralSource: referralSource || null,
       sort,
       startDate,
       endDate,
@@ -435,6 +448,7 @@ exports.exportAttemptsAdmin = async (req, res) => {
       status = null,
       passed = null,
       examId = null,
+      referralSource = null,
       sort = "created_at:desc",
       startDate = null,
       endDate = null,
@@ -445,6 +459,7 @@ exports.exportAttemptsAdmin = async (req, res) => {
       status: status || null,
       passed: passed === null || passed === "" ? null : passed === "true",
       examId: examId ? parseInt(examId) : null,
+      referralSource: referralSource || null,
       sort,
       startDate,
       endDate,
