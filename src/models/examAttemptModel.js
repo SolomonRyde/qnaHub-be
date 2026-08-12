@@ -9,6 +9,7 @@ const _buildAdminFilters = ({
   status = null,
   passed = null,
   examId = null,
+  referralSource = null,
   startDate = null,
   endDate = null,
 }) => {
@@ -27,10 +28,15 @@ const _buildAdminFilters = ({
     query += " AND ea.exam_id = ?";
     values.push(examId);
   }
+  if (referralSource) {
+    query += " AND u.referral_source = ?";
+    values.push(referralSource);
+  }
   if (search) {
-    query += " AND (u.name LIKE ? OR u.email LIKE ? OR e.exam_title LIKE ?)";
+    query +=
+      " AND (u.name LIKE ? OR u.email LIKE ? OR e.exam_title LIKE ? OR UPPER(u.referral_name) LIKE UPPER(?))";
     const term = `%${search}%`;
-    values.push(term, term, term);
+    values.push(term, term, term, term);
   }
 
   // Date Filtering Logic
@@ -120,6 +126,7 @@ const examAttemptModel = {
     status = null,
     passed = null,
     examId = null,
+    referralSource = null,
     sort = "created_at:desc",
     startDate = null,
     endDate = null,
@@ -130,11 +137,12 @@ const examAttemptModel = {
       status,
       passed,
       examId,
+      referralSource,
       startDate,
       endDate,
     });
 
-    let query = `SELECT ea.id, ea.user_id, u.name AS user_name, u.email AS user_email, ea.exam_id, e.exam_title, e.slug, e.difficulty, ea.score, ea.total_marks, ea.percentage, ea.correct_count, ea.wrong_count, ea.unanswered_count, ea.status, ea.passed, ea.start_time, ea.end_time, ea.created_at FROM exam_attempts ea JOIN users u ON u.id = ea.user_id JOIN exams e ON e.id = ea.exam_id ${whereClause}`;
+    let query = `SELECT ea.id, ea.user_id, u.name AS user_name, u.email AS user_email, u.referral_source AS referral_source, u.referral_name AS referral_name, ea.exam_id, e.exam_title, e.slug, e.difficulty, ea.score, ea.total_marks, ea.percentage, ea.correct_count, ea.wrong_count, ea.unanswered_count, ea.status, ea.passed, ea.start_time, ea.end_time, ea.created_at FROM exam_attempts ea JOIN users u ON u.id = ea.user_id JOIN exams e ON e.id = ea.exam_id ${whereClause}`;
 
     const values = [...filterValues];
 
@@ -176,6 +184,7 @@ const examAttemptModel = {
     status = null,
     passed = null,
     examId = null,
+    referralSource = null,
     startDate = null,
     endDate = null,
   }) => {
@@ -185,6 +194,7 @@ const examAttemptModel = {
       status,
       passed,
       examId,
+      referralSource,
       startDate,
       endDate,
     });
@@ -210,7 +220,7 @@ const examAttemptModel = {
    * Used for the attempt detail / answer-review modal.
    */
   getAttemptByIdAdmin: async (attempt_id) => {
-    const sql = `SELECT ea.id, ea.user_id, u.name AS user_name, u.email AS user_email, ea.exam_id, e.exam_title, e.slug, ea.total_marks, ea.score, ea.percentage, ea.correct_count, ea.wrong_count, ea.unanswered_count, ea.status, ea.passed, ea.start_time, ea.end_time, ea.created_at FROM exam_attempts ea JOIN users u ON u.id = ea.user_id JOIN exams e ON e.id = ea.exam_id WHERE ea.id = ?`;
+    const sql = `SELECT ea.id, ea.user_id, u.name AS user_name, u.email AS user_email, u.referral_source AS referral_source, u.referral_name AS referral_name, ea.exam_id, e.exam_title, e.slug, ea.total_marks, ea.score, ea.percentage, ea.correct_count, ea.wrong_count, ea.unanswered_count, ea.status, ea.passed, ea.start_time, ea.end_time, ea.created_at FROM exam_attempts ea JOIN users u ON u.id = ea.user_id JOIN exams e ON e.id = ea.exam_id WHERE ea.id = ?`;
     const [rows] = await db.execute(sql, [attempt_id]);
     return rows[0] || null;
   },
@@ -224,6 +234,7 @@ const examAttemptModel = {
     status = null,
     passed = null,
     examId = null,
+    referralSource = null,
     sort = "created_at:desc",
     startDate = null,
     endDate = null,
@@ -234,11 +245,12 @@ const examAttemptModel = {
       status,
       passed,
       examId,
+      referralSource,
       startDate,
       endDate,
     });
 
-    let query = `SELECT ea.id, ea.user_id, u.name AS user_name, u.email AS user_email, ea.exam_id, e.exam_title, e.slug, e.difficulty, ea.score, ea.total_marks, ea.percentage, ea.correct_count, ea.wrong_count, ea.unanswered_count, ea.status, ea.passed, ea.start_time, ea.end_time, ea.created_at FROM exam_attempts ea JOIN users u ON u.id = ea.user_id JOIN exams e ON e.id = ea.exam_id ${whereClause}`;
+    let query = `SELECT ea.id, ea.user_id, u.name AS user_name, u.email AS user_email, u.referral_source AS referral_source, u.referral_name AS referral_name, ea.exam_id, e.exam_title, e.slug, e.difficulty, ea.score, ea.total_marks, ea.percentage, ea.correct_count, ea.wrong_count, ea.unanswered_count, ea.status, ea.passed, ea.start_time, ea.end_time, ea.created_at FROM exam_attempts ea JOIN users u ON u.id = ea.user_id JOIN exams e ON e.id = ea.exam_id ${whereClause}`;
 
     const values = [...filterValues];
 

@@ -10,6 +10,7 @@ const {
   logout,
   getMe,
   updateProfile,
+  updateReferral,
   updateEmail,
   changePassword,
 } = require("../controllers/authController");
@@ -27,6 +28,7 @@ router.get("/me", authenticateToken, getMe);
 
 // ─── Self-service account management ──────────────────────────────────────
 router.patch("/profile", authenticateToken, updateProfile);
+router.patch("/referral", authenticateToken, updateReferral);
 router.patch("/email", authenticateToken, updateEmail);
 router.patch("/password", authenticateToken, changePassword);
 
