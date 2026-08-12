@@ -71,23 +71,23 @@ const llmModel = {
   // --- Generation History ---
   createGenerationHistory: async (data) => {
     const query = `
-      INSERT INTO llm_generation_history 
-      (exam_id, difficulty, question_count, model_used, generated_by_user_id, generated_by_name, 
-       prompt_tokens, output_tokens, total_tokens, file_id, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+    INSERT INTO llm_generation_history 
+    (exam_id, difficulty, question_count, model_used, generated_by_user_id, generated_by_name, 
+     prompt_tokens, output_tokens, total_tokens, file_id, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
     const values = [
-      data.exam_id,
-      data.difficulty,
-      data.question_count,
-      data.model_used,
-      data.generated_by_user_id,
-      data.generated_by_name,
-      data.prompt_tokens,
-      data.output_tokens,
-      data.total_tokens,
-      data.file_id,
-      data.status,
+      data.exam_id ?? null,
+      data.difficulty ?? null,
+      data.question_count ?? null,
+      data.model_used ?? null,
+      data.generated_by_user_id ?? null,
+      data.generated_by_name ?? null,
+      data.prompt_tokens ?? null,
+      data.output_tokens ?? null,
+      data.total_tokens ?? null,
+      data.file_id ?? null,
+      data.status ?? null,
     ];
     const [result] = await db.execute(query, values);
     return result.insertId;
