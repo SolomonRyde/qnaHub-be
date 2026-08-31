@@ -163,6 +163,8 @@ exports.verifyOTP = catchAsync(async (req, res, next) => {
       phone_number: updatedUser.phone_number,
       role: updatedUser.role,
       is_verified: updatedUser.is_verified,
+      referral_source: updatedUser.referral_source,
+      referral_name: updatedUser.referral_name,
     },
   });
 });
@@ -207,6 +209,8 @@ exports.login = catchAsync(async (req, res, next) => {
       name: user.name,
       phone_number: user.phone_number,
       role: user.role,
+      referral_source: user.referral_source,
+      referral_name: user.referral_name,
     },
   });
 });
