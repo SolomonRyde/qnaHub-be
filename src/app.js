@@ -34,6 +34,7 @@ app.use("/uploads", express.static("/home/u911106075/uploads"));
 const allowedOrigins = [
   "http://localhost:5173",
   "https://qnahub.rydevalues.cloud",
+  "https://qnahub.in",
 ];
 
 // security middleware
