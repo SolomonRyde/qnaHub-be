@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -6,45 +6,39 @@ const transporter = nodemailer.createTransport({
   secure: true,
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
+    pass: process.env.SMTP_PASS,
   },
-  name: "rydefoundation.in" // 👈 VERY IMPORTANT
+  name: "rydefoundation.in", // 👈 VERY IMPORTANT
 });
 
 // Verify connection at startup
 transporter.verify((error, success) => {
   if (error) {
-    console.error('SMTP Connection Error:', error.message);
-    console.error('Full error:', error);
+    console.error("SMTP Connection Error:", error.message);
+    console.error("Full error:", error);
   } else {
-    console.log('✅ SMTP Server ready');
-   
+    console.log("✅ SMTP Server ready");
   }
 });
 
 exports.sendOTP = async (email, otp, name) => {
   try {
     const mailOptions = {
-  from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_USER}>`,
-  to: email,
-  subject: 'Your OTP for Email Verification',
-  html: `<p>Hello <strong>${name}</strong>,</p>
+      from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: "Your OTP for Email Verification",
+      html: `<p>Hello <strong>${name}</strong>,</p>
          <p>Your verification OTP is <strong>${otp}</strong>.</p>
          <p>It will expire in 10 minutes.</p>`,
-  messageId: `<${Date.now()}@rydefoundation.in>`,
-  date: new Date(),
-  headers: {
-    'X-Mailer': 'NodeMailer',
-    'MIME-Version': '1.0',
-    'Content-Type': 'text/html; charset=UTF-8'
-  }
-};
+      messageId: `<${Date.now()}@rydefoundation.in>`,
+      date: new Date(),
+    };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent:', info.response);
+    console.log("Email sent:", info.response);
     return info;
   } catch (error) {
-    console.error('Email sending error:', error.message);
+    console.error("Email sending error:", error.message);
     throw new Error(`Failed to send OTP: ${error.message}`);
   }
 };
@@ -54,7 +48,7 @@ exports.sendResetLink = async (email, resetLink, name) => {
     const mailOptions = {
       from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: 'Password reset request for your account',
+      subject: "Password reset request for your account",
       html: `
   <div style="font-family: Arial, sans-serif; background-color: #f6f8fb; padding: 20px;">
     
@@ -102,19 +96,63 @@ exports.sendResetLink = async (email, resetLink, name) => {
 `,
       messageId: `<${Date.now()}@rydefoundation.in>`,
       date: new Date(),
-      headers: {
-        'X-Mailer': 'NodeMailer',
-        'MIME-Version': '1.0',
-        'Content-Type': 'text/html; charset=UTF-8'
-      }
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('Reset email sent:', info.response);
+    console.log("Reset email sent:", info.response);
     return info;
-
   } catch (error) {
-    console.error('Reset email error:', error.message);
+    console.error("Reset email error:", error.message);
     throw new Error(`Failed to send reset link: ${error.message}`);
+  }
+};
+
+exports.sendContactMessage = async ({ name, email, subject, message }) => {
+  try {
+    const contactInbox = process.env.CONTACT_INBOX || "admin@rydecs.com";
+
+    const textBody = `New contact form message
+
+      Name: ${name}
+      Email: ${email}
+
+      Message:
+      ${message}
+
+---
+Reply directly to this email to respond to ${name} at ${email}.`;
+
+    const htmlBody = `
+  <div style="font-family: Arial, sans-serif; background-color: #f6f8fb; padding: 20px;">
+    <div style="max-width: 500px; margin: auto; background: #ffffff; padding: 30px; border-radius: 8px; border: 1px solid #e0e0e0;">
+      <h2 style="margin-top: 0; color: #333;">New Contact Form Message</h2>
+      <p style="color: #555;"><strong>Name:</strong> ${name}</p>
+      <p style="color: #555;"><strong>Email:</strong> ${email}</p>
+      <p style="color: #555; white-space: pre-wrap;"><strong>Message:</strong><br/>${message}</p>
+      <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;" />
+      <p style="color: #aaa; font-size: 12px;">
+        Reply directly to this email to respond to ${name} at ${email}.
+      </p>
+    </div>
+  </div>
+`;
+
+    const mailOptions = {
+      from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_USER}>`,
+      to: contactInbox,
+      replyTo: email,
+      subject: subject || `New message from ${name} via QnaHub Contact Form`,
+      text: textBody,
+      html: htmlBody,
+      messageId: `<${Date.now()}@rydefoundation.in>`,
+      date: new Date(),
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Contact message sent:", info.response);
+    return info;
+  } catch (error) {
+    console.error("Contact message error:", error.message);
+    throw new Error(`Failed to send contact message: ${error.message}`);
   }
 };
