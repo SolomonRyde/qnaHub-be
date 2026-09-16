@@ -18,6 +18,7 @@ const examRoutes = require("./routes/examRoutes");
 const errorHandler = require("./middleware/errorHandler");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const contactRoutes = require("./routes/contactRoutes");
 
 const requestLogger = require("./middleware/requestLogger");
 
@@ -73,6 +74,7 @@ app.use(requestLogger);
 app.use("/api/v1/llm/questions", llmQuestionRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/contact", contactRoutes);
 
 app.use("/api/v1/questions", questionRoutes);
 app.use("/api/v1/question-imports", importRoutes);
