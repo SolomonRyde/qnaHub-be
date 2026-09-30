@@ -15,10 +15,11 @@ const {
   changePassword,
 } = require("../controllers/authController");
 const { authenticateToken } = require("../middleware/auth");
+const { signupLimiter, otpResendLimiter } = require("../middleware/ipRateLimit");
 
-router.post("/signup", signup);
+router.post("/signup", signupLimiter, signup);
 router.post("/verify-otp", verifyOTP);
-router.post("/resend-otp", resendOTP);
+router.post("/resend-otp", otpResendLimiter, resendOTP);
 router.post("/login", login);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);

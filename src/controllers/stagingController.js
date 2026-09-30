@@ -47,7 +47,7 @@ exports.getStagingQuestions = async (req, res, next) => {
       filters: result.filters,
     });
   } catch (error) {
-    console.error("getStagingQuestions error:", error);
+    console.error(error);
     next(error);
   }
 };
