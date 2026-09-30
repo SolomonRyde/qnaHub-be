@@ -54,6 +54,36 @@ exports.updatePassword = async (email, newPassword) => {
   );
 };
 
+exports.updateUnverifiedUser = async ({
+  email,
+  password,
+  name,
+  phone_number,
+  country_code,
+  otp,
+  otp_expiry,
+  otp_last_sent,
+}) => {
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const [result] = await pool.execute(
+    `UPDATE users
+     SET name = ?, password = ?, phone_number = ?, country_code = ?,
+         otp = ?, otp_expiry = ?, otp_last_sent = ?
+     WHERE email = ? AND is_verified = 0`,
+    [
+      name,
+      hashedPassword,
+      phone_number,
+      country_code || "+1",
+      otp,
+      otp_expiry,
+      otp_last_sent,
+      email,
+    ],
+  );
+  return result.affectedRows > 0;
+};
+
 exports.verifyOTP = async (email, otp) => {
   const user = await exports.findByEmail(email);
   if (!user) return false;

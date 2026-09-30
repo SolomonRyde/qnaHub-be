@@ -34,6 +34,9 @@ const BG_OUTER = "#f4f3ee";
 // Logo URL (Use env var in production, fallback to public folder for local testing)
 const LOGO_URL = process.env.LOGO_URL;
 
+// App URL for verification links
+const APP_URL = process.env.APP_URL;
+
 // Escape any user-supplied string before it goes into HTML. Without this,
 // a contact-form submitter can inject raw markup/links into mail your
 // domain sends — which is a common cause of a sender getting flagged.
@@ -83,9 +86,10 @@ const getHeaderHTML = () => `
 // --- EMAIL TEMPLATES ---
 
 // 1. OTP VERIFICATION EMAIL
-const otpTemplate = (name, otp) => {
+const otpTemplate = (name, otp, email) => {
   const safeName = escapeHtml(name);
   const safeOtp = escapeHtml(otp);
+  const safeVerifyLink = escapeHtml(`${APP_URL}/verify-otp?email=${encodeURIComponent(email)}`);
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -125,7 +129,7 @@ const otpTemplate = (name, otp) => {
               </p>
 
               <!-- OTP Display Box -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #EEF8F0; border-radius: 8px; margin-bottom: 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #EEF8F0; border-radius: 8px; margin-bottom: 20px;">
                 <tr>
                   <td align="center" style="padding: 24px 20px;">
                     <p style="margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: ${TEXT_MUTED}; font-weight: 600; font-family: Arial, Helvetica, sans-serif;">
@@ -137,6 +141,23 @@ const otpTemplate = (name, otp) => {
                     <p style="margin: 12px 0 0; font-size: 13px; color: ${TEXT_MUTED}; font-family: Arial, Helvetica, sans-serif;">
                       This code expires in <strong>10 minutes</strong>.
                     </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Verification Link Button -->
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom: 28px; width: 100%;">
+                <tr>
+                  <td align="center" style="border-radius: 8px; background: ${BRAND_GREEN};">
+                    <!--[if mso]>
+                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${safeVerifyLink}" style="height:46px;v-text-anchor:middle;width:220px;" arcsize="10%" stroke="f" fillcolor="${BRAND_GREEN}">
+                      <w:anchorlock/>
+                      <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:600;">Go to Verification Page</center>
+                    </v:roundrect>
+                    <![endif]-->
+                    <a href="${safeVerifyLink}" target="_blank" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px; font-family: Arial, Helvetica, sans-serif;">
+                      Go to Verification Page &rarr;
+                    </a>
                   </td>
                 </tr>
               </table>
@@ -390,7 +411,7 @@ exports.sendOTP = async (email, otp, name) => {
       from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_USER}>`,
       to: email,
       subject: `Your OTP for Email Verification | QnaHub`,
-      html: otpTemplate(name, otp),
+      html: otpTemplate(name, otp, email),
       text: `Hello ${name},\n\nYour verification OTP is ${otp}.\nIt will expire in 10 minutes.\n\nBest regards,\nThe Ryde Consulting Team\n\nIf you have any issues, contact admin@rydecs.com`,
       messageId: `<${Date.now()}@rydefoundation.in>`,
       date: new Date(),

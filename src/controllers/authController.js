@@ -4,6 +4,7 @@ const User = require("../models/userModel");
 const { sendOTP, sendResetLink } = require("../utils/mailer");
 const { catchAsync, throwError } = require("../utils/errorHandler");
 const crypto = require("crypto");
+const OTPRateLimitService = require("../services/otpRateLimitService");
 
 const generateResetToken = () => {
   return crypto.randomBytes(32).toString("hex");
@@ -82,9 +83,58 @@ exports.signup = catchAsync(async (req, res, next) => {
 
   const { email, password, name, phone_number, country_code } = value;
 
-  const existingUser = await User.findByEmail(email);
-  if (existingUser) throwError("Email already registered", 409);
+  // Check rate limit BEFORE existing user lookup
+  const rateLimitCheck = await OTPRateLimitService.checkAndIncrement(email);
+  if (!rateLimitCheck.allowed) {
+    return res.status(429).json({
+      success: false,
+      message: rateLimitCheck.reason,
+      retryAfter: rateLimitCheck.retryAfter,
+    });
+  }
 
+  const existingUser = await User.findByEmail(email);
+
+  // Generate OTP and expiry times for both new and re-signup cases
+  const otp = generateOTP();
+  const expiry = new Date(Date.now() + 10 * 60 * 1000);
+  const otpLastSent = new Date();
+
+  if (existingUser) {
+    // If verified user exists, block signup
+    if (existingUser.is_verified) {
+      throwError("Email already registered", 409);
+    }
+
+    // If unverified user exists, allow re-signup by updating the record
+    const updated = await User.updateUnverifiedUser({
+      email,
+      password,
+      name,
+      phone_number,
+      country_code,
+      otp,
+      otp_expiry: expiry,
+      otp_last_sent: otpLastSent,
+    });
+
+    if (!updated) {
+      throwError("Failed to update account. Please try again.", 500);
+    }
+
+    // Send OTP email
+    await sendOTP(email, otp, name);
+
+    return res.status(200).json({
+      success: true,
+      message: "Verification code resent. Please check your email.",
+      email,
+      phone_number,
+      ...(process.env.NODE_ENV === "development" && { otp }), // ⭐ Return OTP in development
+    });
+  }
+
+  // Create new user (no existing user found)
   await User.create({
     email,
     password,
@@ -95,13 +145,7 @@ exports.signup = catchAsync(async (req, res, next) => {
     status: 1,
   });
 
-  const otp = generateOTP();
-  const expiry = new Date(Date.now() + 10 * 60 * 1000);
-  const otpLastSent = new Date();
-
   await User.updateOTP(email, otp, expiry, otpLastSent);
-
-  // console.log(`📧 OTP for ${email}: ${otp}`); // ⭐ Log OTP to console for testing
 
   await sendOTP(email, otp, name);
 
@@ -121,6 +165,17 @@ exports.verifyOTP = catchAsync(async (req, res, next) => {
   if (error) throwError(error.details[0].message, 400);
 
   const { email, otp } = value;
+
+  // ✅ Use verification-specific rate limit (no 60-second cooldown, but prevents brute force)
+  const rateLimitCheck =
+    await OTPRateLimitService.checkVerificationAttempt(email);
+  if (!rateLimitCheck.allowed) {
+    return res.status(429).json({
+      success: false,
+      message: rateLimitCheck.reason,
+      retryAfter: rateLimitCheck.retryAfter,
+    });
+  }
 
   // ✅ FIX: Use Model method instead of pool.query
   const user = await User.findByOTP(otp);
@@ -145,6 +200,9 @@ exports.verifyOTP = catchAsync(async (req, res, next) => {
     // Let's call the model method to keep logic consistent.
     await User.verifyOTP(user.email, otp);
   }
+
+  // Reset rate limit counters after successful verification
+  await OTPRateLimitService.reset(user.email);
 
   // Refresh user data after update
   const updatedUser = await User.findById(user.id);
@@ -227,6 +285,16 @@ exports.resendOTP = async (req, res, next) => {
 
     const { email } = value;
 
+    // Check rate limit BEFORE processing resend request
+    const rateLimitCheck = await OTPRateLimitService.checkAndIncrement(email);
+    if (!rateLimitCheck.allowed) {
+      return res.status(429).json({
+        success: false,
+        message: rateLimitCheck.reason,
+        retryAfter: rateLimitCheck.retryAfter,
+      });
+    }
+
     // Try finding by email first (for signup)
     let user = await User.findByEmail(email);
 
@@ -265,6 +333,16 @@ exports.resendOTP = async (req, res, next) => {
 
 exports.forgotPassword = catchAsync(async (req, res, next) => {
   const { email } = req.body;
+
+  // Check rate limit BEFORE processing password reset
+  const rateLimitCheck = await OTPRateLimitService.checkAndIncrement(email);
+  if (!rateLimitCheck.allowed) {
+    return res.status(429).json({
+      success: false,
+      message: rateLimitCheck.reason,
+      retryAfter: rateLimitCheck.retryAfter,
+    });
+  }
 
   const user = await User.findByEmail(email);
   if (!user) throwError("User not found", 404);

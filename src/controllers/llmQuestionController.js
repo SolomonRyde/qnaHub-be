@@ -259,25 +259,16 @@ Before responding, verify: does the array have exactly ${effectiveCount} element
       const fileName = `${examTitleClean}_${difficulty.toUpperCase()}_${effectiveCount}_${serial}.json`;
       const filePath = path.join(UPLOAD_DIR, fileName);
 
-      console.log("📝 Full server path:", filePath);
-      console.log(
-        "📋 Database path:",
-        `/uploads/generated-questions/${fileName}`,
-      );
-      console.log("📄 File name:", fileName);
-
       const fileContent = JSON.stringify(finalQuestions, null, 2);
       console.log("✍️  Writing file, size:", fileContent.length, "bytes");
 
       await fs.writeFile(filePath, fileContent, "utf8");
-      console.log("✅ File written successfully");
 
       // Verify file was created
       const fileStats = await fs.stat(filePath);
       console.log("✅ File verified, size:", fileStats.size, "bytes");
 
       // ✅ DB Operations (Moved inside try block to access fileName and fileId)
-      console.log("💾 Creating database record for file...");
       fileId = await llmModel.createGeneratedFile({
         exam_id,
         exam_title: exam.exam_title,
@@ -289,7 +280,6 @@ Before responding, verify: does the array have exactly ${effectiveCount} element
         file_name: fileName,
         file_path: `/uploads/generated-questions/${fileName}`,
       });
-      console.log("✅ Database record created with ID:", fileId);
 
       await llmModel.createGenerationHistory({
         exam_id,
@@ -315,7 +305,6 @@ Before responding, verify: does the array have exactly ${effectiveCount} element
       if (fileId) {
         try {
           await llmModel.deleteGeneratedFile(fileId);
-          console.log("🗑️ Cleaned up database record");
         } catch (cleanupErr) {
           console.error("❌ Cleanup failed:", cleanupErr);
         }
@@ -399,10 +388,13 @@ exports.getAiStats = catchAsync(async (req, res) => {
 
 exports.getGeneratedFiles = catchAsync(async (req, res) => {
   const files = await llmModel.getGeneratedFiles();
+  const baseUrl = process.env.PUBLIC_BASE_URL;
+
   const mappedFiles = files.map((f) => ({
     ...f,
-    file_url: `https://api.rydevalues.cloud${f.file_path}`,
+    file_url: `${baseUrl}${f.file_path}`,
   }));
+
   res.json({ success: true, data: mappedFiles });
 });
 

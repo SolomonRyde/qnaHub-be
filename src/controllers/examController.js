@@ -5,9 +5,6 @@ const examValidation = require("../validations/examValidation.js");
 const examController = {
   createExam: async (req, res) => {
     try {
-      console.log("📦 BODY:", req.body);
-      console.log("📁 FILE:", req.file);
-
       if (!examValidation?.createExamSchema) {
         throw new Error(
           "createExamSchema is undefined - check examValidation.js export",
@@ -23,7 +20,7 @@ const examController = {
       );
 
       if (error) {
-        console.error("❌ Validation errors:", error.details);
+        console.error(error.details);
         return res.status(400).json({
           success: false,
           message: "Validation failed",
@@ -45,7 +42,6 @@ const examController = {
       });
 
       const exam = await examModel.findExamById(examId);
-      console.log("✅ Exam created:", examId);
 
       res.status(201).json({
         success: true,
@@ -66,11 +62,6 @@ const examController = {
   updateExam: async (req, res) => {
     try {
       const { id } = req.params;
-
-      console.log("📥 PATCH /exam/:id Received");
-      console.log("📦 Body:", req.body);
-      console.log("📁 File:", req.file);
-
       const existingExam = await examModel.findExamById(id);
       if (!existingExam) {
         return res.status(404).json({
@@ -88,7 +79,7 @@ const examController = {
       );
 
       if (error) {
-        console.error("❌ Validation Failed:", error.details);
+        console.error(error.details);
         return res.status(400).json({
           success: false,
           message: "Validation failed",
@@ -131,7 +122,7 @@ const examController = {
         data: exam,
       });
     } catch (error) {
-      console.error("Error updating exam:", error);
+      console.error(error);
       res.status(500).json({
         success: false,
         message: "Failed to update exam",
@@ -165,7 +156,7 @@ const examController = {
         message: "Exam deleted permanently",
       });
     } catch (error) {
-      console.error("Error deleting exam:", error);
+      console.error(error);
       res.status(500).json({
         success: false,
         message: "Failed to delete exam",
@@ -194,7 +185,7 @@ const examController = {
         pagination: result.pagination,
       });
     } catch (error) {
-      console.error("Error fetching exams:", error);
+      console.error(error);
       res.status(500).json({
         success: false,
         message: "Failed to fetch exams",
@@ -218,7 +209,7 @@ const examController = {
         data: exam,
       });
     } catch (error) {
-      console.error("Error fetching exam:", error);
+      console.error(error);
       res.status(500).json({
         success: false,
         message: "Failed to fetch exam",
@@ -256,7 +247,7 @@ const examController = {
         pagination: result.pagination,
       });
     } catch (error) {
-      console.error("Error fetching admin exams:", error);
+      console.error(error);
       res.status(500).json({
         success: false,
         message: "Failed to fetch exams",
@@ -303,7 +294,7 @@ const examController = {
         data: exam,
       });
     } catch (error) {
-      console.error("Error updating exam status:", error);
+      console.error(error);
       res.status(500).json({
         success: false,
         message: "Failed to update exam status",
@@ -350,7 +341,7 @@ const examController = {
         data: exam,
       });
     } catch (error) {
-      console.error("Error toggling featured exam:", error);
+      console.error(error);
       res.status(500).json({
         success: false,
         message: "Failed to update featured status",
@@ -367,7 +358,7 @@ const examController = {
         data: industries,
       });
     } catch (error) {
-      console.error("Error fetching industries:", error);
+      console.error(error);
       res.status(500).json({
         success: false,
         message: "Failed to fetch industries",
@@ -391,7 +382,7 @@ const examController = {
         data: categories,
       });
     } catch (error) {
-      console.error("Error fetching categories:", error);
+      console.error(error);
       res.status(500).json({
         success: false,
         message: "Failed to fetch categories",
@@ -416,7 +407,7 @@ const examController = {
         data: subcategories,
       });
     } catch (error) {
-      console.error("Error fetching subcategories:", error);
+      console.error(error);
       res.status(500).json({
         success: false,
         message: "Failed to fetch subcategories",
@@ -436,7 +427,7 @@ const examController = {
         data: analytics,
       });
     } catch (error) {
-      console.error("Analytics error:", error);
+      console.error(error);
       res.status(500).json({
         success: false,
         message: "Failed to fetch analytics",

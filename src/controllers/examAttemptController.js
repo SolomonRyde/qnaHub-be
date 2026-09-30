@@ -54,7 +54,7 @@ exports.startExam = async (req, res) => {
       attemptId,
     });
   } catch (error) {
-    console.error("startExam error:", error);
+    console.error(error);
     return res.status(500).json({
       success: false,
       message: "Failed to start exam",
@@ -92,7 +92,7 @@ exports.getExamQuestions = async (req, res) => {
       data: questions,
     });
   } catch (error) {
-    console.error("getExamQuestions error:", error);
+    console.error( error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch questions",
@@ -219,7 +219,7 @@ exports.submitExam = async (req, res) => {
       totalMarks: exam.total_marks,
     });
   } catch (error) {
-    console.error("submitExam error:", error);
+    console.error( error);
     return res.status(500).json({
       success: false,
       message: "Failed to submit exam",
@@ -281,7 +281,7 @@ exports.getResult = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("getResult error:", error);
+    console.error( error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch result",
@@ -322,7 +322,7 @@ exports.getMyAttempts = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("getMyAttempts error:", error);
+    console.error( error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch attempts",
@@ -394,7 +394,7 @@ exports.getAllAttemptsAdmin = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("getAllAttemptsAdmin error:", error);
+    console.error( error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch exam attempts",
@@ -427,7 +427,7 @@ exports.getAttemptDetailAdmin = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("getAttemptDetailAdmin error:", error);
+    console.error( error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch attempt detail",
@@ -553,7 +553,7 @@ exports.exportAttemptsAdmin = async (req, res) => {
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
-    console.error("exportAttemptsAdmin error:", error);
+    console.error( error);
     // If headers haven't been sent yet, send JSON error
     if (!res.headersSent) {
       return res.status(500).json({
