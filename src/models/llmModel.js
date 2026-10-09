@@ -96,10 +96,10 @@ const llmModel = {
   // --- Generated Files ---
   createGeneratedFile: async (data) => {
     const query = `
-      INSERT INTO generated_question_files 
-      (exam_id, exam_title, difficulty, question_count, llm_model, 
-       generated_by_user_id, generated_by_name, file_name, file_path)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO generated_question_files
+      (exam_id, exam_title, difficulty, question_count, llm_model,
+       generated_by_user_id, generated_by_name, file_name, file_path, source_pdf_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const values = [
       data.exam_id,
@@ -111,6 +111,7 @@ const llmModel = {
       data.generated_by_name,
       data.file_name,
       data.file_path,
+      data.source_pdf_name || null,
     ];
     const [result] = await db.execute(query, values);
     return result.insertId;
